@@ -262,7 +262,7 @@ if (isset($_GET['download'])) {
         </div>
     </div>
     <p>
-        <!-- the elegant footer -->
+        <!-- the elegant footer from https://github.com/hjelmua/matcher/ -->
     </p>
 </body>
 </html>
