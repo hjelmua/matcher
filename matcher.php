@@ -229,6 +229,6 @@ if ($content) {
 
         </div>
     </div>
-    <p> <!-- the elegant footer --> </p>
+    <p> <!-- the elegant footer from https://github.com/hjelmua/matcher/--> </p>
 </body>
 </html>
