@@ -8,20 +8,13 @@ function fetchContentWithCurl($url) {
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);  // Timeout after 10 seconds
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);  // Disable SSL verification if necessary
-    curl_setopt($ch, CURLOPT_USERAGENT, 'PHP-Script');  // Set a User-Agent
-
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'PHP-Script');
     $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        error_log("cURL error: " . curl_error($ch));
-        $response = false;
-    }
     curl_close($ch);
-
     return $response;
 }
-
 
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
     $content = file_get_contents($cacheFile);
@@ -36,40 +29,47 @@ function cleanWidgetContent($content) {
     $content = preg_replace('/^document\.write\("(.+)"\);$/s', '$1', $content);
     $content = str_replace('\"', '"', $content);
     $content = str_replace("\\'", "'", $content);
-    $content = preg_replace('/\s*style="[^"]*"/i', '', $content);  // Remove inline styles
-    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);  // Remove the footer
-
-    // Remove the "Resultat" <th> column
+    $content = preg_replace('/\s*style="[^"]*"/i', '', $content);
+    $content = preg_replace('/<thead>.*?<\/thead>/is', '', $content);
+    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);
     $content = preg_replace('/<th>Resultat<\/th>/i', '', $content);
-
-    // Remove the 4th <td> in each <tr> in the table body
     $content = preg_replace('/<tr class="[^"]*">\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>\s*<td>.*?<\/td>\s*<\/tr>/is', '<tr><td>$1</td><td>$2</td><td>$3</td></tr>', $content);
-
     return trim($content);
 }
 
 function extractMatches($content) {
     $matches = [];
     
-    // Match only rows that have 3 `<td>` elements with actual match data
+    // Updated regex to capture matches with or without time
     if (preg_match_all('/<tr>\s*<td>\s*(\d{4}-\d{2}-\d{2})(?:<!-- br ok -->\s*(\d{2}:\d{2}))?\s*<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
         foreach ($matchesData as $match) {
-            $date = strip_tags($match[1]);
-            $time = isset($match[2]) ? trim($match[2]) : '00:00';  // Default time if missing
+            $date = $match[1];
+            $time = isset($match[2]) && trim($match[2]) ? trim($match[2]) : '00:00';  // Set default time to 00:00 if missing
             $competition = strip_tags($match[3]);
             $game = strip_tags($match[4]);
+            $monthName = getMonthName($date);
 
             $matches[] = [
                 'date' => "$date $time",
+                'month' => $monthName,
                 'competition' => $competition,
                 'match' => $game
             ];
         }
     }
+
     return $matches;
 }
 
-
+function getMonthName($date) {
+    $months = [
+        '01' => 'Januari', '02' => 'Februari', '03' => 'Mars', '04' => 'April',
+        '05' => 'Maj', '06' => 'Juni', '07' => 'Juli', '08' => 'Augusti',
+        '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'December'
+    ];
+    $monthNum = date('m', strtotime($date));
+    return $months[$monthNum] ?? '';
+}
 
 function generateICS($matches) {
     $icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\n";
@@ -88,21 +88,11 @@ function generateICS($matches) {
     return $icsContent;
 }
 
-
-
-// Cache handling and cleaning the widget content
-if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
-    $content = file_get_contents($cacheFile);
-} else {
-    $content = file_get_contents($widgetUrl);
-    if ($content) {
-        file_put_contents($cacheFile, $content);
-    }
-}
-
 if ($content) {
     $cleanContent = cleanWidgetContent($content);
     $matches = extractMatches($cleanContent);
+    usort($matches, fn($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
+
     if (isset($_GET['download'])) {
         header('Content-Type: text/calendar; charset=utf-8');
         header('Content-Disposition: attachment; filename="Damlagets_matcher.ics"');
@@ -110,11 +100,10 @@ if ($content) {
         exit;
     }
 }
-
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -214,31 +203,49 @@ if ($content) {
 		@font-face {
 		        font-family: "Satoshi";
 		        font-weight: 700;
-		        font-style: bold;
+	        font-style: bold;
 		        src: url("https://functions.siriusfotboll.org/font/Satoshi-Bold.woff") format("woff"), url("https://functions.siriusfotboll.org/font/Satoshi-Bold.ttf") format("truetype")
 		    }
     </style>
 </head>
 <body>
     <div class="container mt-5">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    
-    <h1>Damlagets alla matcher</h1>
-    <img src="/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
-  </div>
 
-            <div class="card shadow-sm">
+	 <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Damlagets matcher</h1>
+	<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	 </div>
+
+        <div class="card shadow-sm">
             <div class="card-body">
-                <?php echo $cleanContent; ?>
-
-                <p> </p>
-        <a href="?download=true" class="btn btn-primary">Ladda ner en kalenderfil med matcherna ovan (.ics)</a>
-
+                <table class="clCommonGrid">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Tävling</th>
+                            <th>Match</th>
+                        </tr>
+                    </thead>
+                    <tbody class="clGrid">
+                        <?php 
+                        $currentMonth = '';
+                        foreach ($matches as $match): 
+                            if ($currentMonth !== $match['month']): 
+                                $currentMonth = $match['month'];
+                        ?>
+                            <tr><td colspan="3"><strong><?= $currentMonth ?></strong></td></tr>
+                        <?php endif; ?>
+                        <tr>
+                            <td><?= $match['date'] ?></td>
+                            <td><?= $match['competition'] ?></td>
+                            <td><?= $match['match'] ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
             </div>
-
-
         </div>
     </div>
-    <p> <!-- the elegant footer from https://github.com/hjelmua/matcher/ --> </p>
 </body>
 </html>
