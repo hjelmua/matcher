@@ -276,7 +276,7 @@ if (isset($_GET['download'])) {
                         <?php echo $tableRows ?: '<tr><td colspan="3">No matches found</td></tr>'; ?>
                     </tbody>
                 </table>
-                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner herrlagens matecher som kalenderfil (.ics)</a>
+                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner herrlagens matcher som kalenderfil (.ics)</a>
             </div>
         </div>
     </div>
