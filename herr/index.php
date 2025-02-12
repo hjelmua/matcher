@@ -106,13 +106,19 @@ foreach ($allMatches as $match) {
     </tr>";
 }
 
-// Function to generate an ICS file from matches
 function generateICS($matches) {
-    $icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\n";
+    $icsContent = "BEGIN:VCALENDAR\r\n";
+    $icsContent .= "VERSION:2.0\r\n";
+    $icsContent .= "CALSCALE:GREGORIAN\r\n";
+    $icsContent .= "X-WR-CALNAME:Sirius - Herrlagens matcher\r\n";  // Calendar name
+    $icsContent .= "X-WR-TIMEZONE:Europe/Stockholm\r\n";     // Set timezone (optional but recommended)
+    
     foreach ($matches as $match) {
         $date = DateTime::createFromFormat('Y-m-d H:i', $match['date']);
         if ($date) {
             $icsContent .= "BEGIN:VEVENT\r\n";
+            $icsContent .= "UID:" . uniqid() . "@siriusfotboll.se\r\n";  // Unique ID for the event
+            $icsContent .= "DTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\n";
             $icsContent .= "DTSTART:" . $date->format('Ymd\THis') . "\r\n";
             $icsContent .= "DTEND:" . $date->modify('+2 hours')->format('Ymd\THis') . "\r\n";
             $icsContent .= "SUMMARY:" . $match['match'] . "\r\n";
@@ -120,6 +126,7 @@ function generateICS($matches) {
             $icsContent .= "END:VEVENT\r\n";
         }
     }
+    
     $icsContent .= "END:VCALENDAR\r\n";
     return $icsContent;
 }
