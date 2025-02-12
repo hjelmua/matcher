@@ -260,7 +260,7 @@ if (isset($_GET['download'])) {
     <div class="container mt-5">
 		 <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Herrlagens matcher</h1>
-		img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+		<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
 		  </div>
         <div class="card shadow-sm">
             <div class="card-body">
