@@ -94,6 +94,15 @@ usort($allMatches, function ($a, $b) {
     return strtotime($a['date']) - strtotime($b['date']);
 });
 
+// Check for unscheduled games (time 00:00)
+$hasUnscheduledGames = false;
+foreach ($allMatches as $match) {
+    if (strpos($match['date'], '00:00') !== false) {
+        $hasUnscheduledGames = true;
+        break;
+    }
+}
+
 // Generate the HTML table rows
 $lastMonth = '';
 $tableRows = '';
@@ -137,7 +146,7 @@ function generateICS($matches) {
 // Generate the ICS file if download is requested
 if (isset($_GET['download'])) {
     header('Content-Type: text/calendar; charset=utf-8');
-    header('Content-Disposition: attachment; filename="akademilagens_matcher.ics"');
+    header('Content-Disposition: attachment; filename="Akademilagens_matcher.ics"');
     echo generateICS($allMatches);
     exit;
 }
@@ -219,6 +228,13 @@ if (isset($_GET['download'])) {
             color: #000 !important;
             text-decoration: underline !important;
         }
+
+
+         .unscheduled-warning {
+         background-color: #FFE100;  /* Light red/pink background */
+         border: 1px solid #D9D8D7; /* Slightly darker border */
+         color: #0058A2;            /* Dark red text for better visibility */
+          }
       		
 		@font-face {
 		        font-family: "LeagueGothic";
@@ -273,6 +289,21 @@ if (isset($_GET['download'])) {
                     </tbody>
                 </table>
                 <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
+
+<?php if ($hasUnscheduledGames): ?>
+<p>  </p>
+            <div class="card unscheduled-warning mb-3">
+                <div class="card-body">
+                    <p class="mb-0">
+                        <strong>Notera:</strong> Vissa matcher har ännu inte fått en fastställd tid (visas som <code>00:00</code>). 
+                        Kom tillbaka vid ett senare tillfälle för att se uppdaterad information.
+                    </p>
+                </div>
+            </div>
+        <?php endif; ?>
+
+
+
             </div>
         </div>
     </div>
