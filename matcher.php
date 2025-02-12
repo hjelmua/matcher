@@ -32,61 +32,84 @@ if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
     }
 }
 
+
 function cleanWidgetContent($content) {
     $content = preg_replace('/^document\.write\("(.+)"\);$/s', '$1', $content);
     $content = str_replace('\"', '"', $content);
     $content = str_replace("\\'", "'", $content);
     $content = preg_replace('/\s*style="[^"]*"/i', '', $content);  // Remove inline styles
-    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);  // Remove the footer
+    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);  // Remove <tfoot>
+    $content = preg_replace('/<tr>\s*<td colspan="4">.*?<\/td>\s*<\/tr>/is', '', $content);  // Remove the extra row with match summary
+    $content = preg_replace('/<thead>.*?<thead>/is', '<thead>', $content);  // Remove duplicate <thead>
+    
     return trim($content);
 }
 
+
 function extractMatches($content) {
     $matches = [];
-    
-    // Match only rows with 3 <td> elements (date, competition, match)
-    if (preg_match_all('/<tr>\s*<td>\s*(\d{4}-\d{2}-\d{2})(?:<!-- br ok -->\s*(\d{2}:\d{2}))?\s*<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
-        foreach ($matchesData as $match) {
-            $date = strip_tags($match[1]);
-            $time = isset($match[2]) ? trim($match[2]) : '00:00';  // Default time if missing
-            $competition = strip_tags($match[3]);
-            $game = strip_tags($match[4]);
+    $currentMonth = '';
 
-            $matches[] = [
-                'date' => "$date $time",
-                'competition' => $competition,
-                'match' => $game
-            ];
+    // Match each <tr> in the <tbody> (ignore the month header row but capture others)
+    if (preg_match_all('/<tr class="">(.*?)<\/tr>/is', $content, $rows)) {
+        foreach ($rows[1] as $row) {
+            if (preg_match('/<td>\s*(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})\s*<\/td>\s*<td>.*?>(.*?)<\/a>\s*<\/td>\s*<td>.*?>(.*?)<\/a>\s*<\/td>/is', $row, $match)) {
+                $date = trim($match[1]);
+                $time = trim($match[2]);
+                $competition = trim($match[3]);
+                $game = trim($match[4]);
+
+                $matches[] = [
+                    'date' => "$date $time",
+                    'competition' => $competition,
+                    'match' => $game,
+                ];
+            }
         }
     }
+
     return $matches;
 }
+
 
 
 function generateICS($matches) {
     $icsContent = "BEGIN:VCALENDAR\r\n";
     $icsContent .= "VERSION:2.0\r\n";
     $icsContent .= "CALSCALE:GREGORIAN\r\n";
-    $icsContent .= "X-WR-CALNAME:Siriuslagens matcher\r\n";  // Calendar name
-    $icsContent .= "X-WR-TIMEZONE:Europe/Stockholm\r\n";     // Set timezone (optional but recommended)
-    
+    $icsContent .= "X-WR-CALNAME:Sirius - Föreningens alla matcher\r\n";
+    $icsContent .= "X-WR-TIMEZONE:Europe/Stockholm\r\n";
+
     foreach ($matches as $match) {
         $date = DateTime::createFromFormat('Y-m-d H:i', $match['date']);
         if ($date) {
+            $startDate = $date->format('Ymd\THis');
+            $endDate = $date->modify('+2 hours')->format('Ymd\THis');
+
             $icsContent .= "BEGIN:VEVENT\r\n";
-            $icsContent .= "UID:" . uniqid() . "@siriusfotboll.se\r\n";  // Unique ID for the event
-            $icsContent .= "DTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\n";
-            $icsContent .= "DTSTART:" . $date->format('Ymd\THis') . "\r\n";
-            $icsContent .= "DTEND:" . $date->modify('+2 hours')->format('Ymd\THis') . "\r\n";
-            $icsContent .= "SUMMARY:" . $match['match'] . "\r\n";
-            $icsContent .= "DESCRIPTION:" . $match['competition'] . "\r\n";
+            $icsContent .= "UID:" . uniqid() . "@siriusfotboll.se\r\n";  // Unique event ID
+            $icsContent .= "DTSTAMP:" . gmdate('Ymd\THis\Z') . "\r\n";  // Current timestamp in UTC
+            $icsContent .= "DTSTART:$startDate\r\n";  // Event start time
+            $icsContent .= "DTEND:$endDate\r\n";  // Event end time
+            $icsContent .= "SUMMARY:" . escapeString($match['match']) . "\r\n";
+            $icsContent .= "DESCRIPTION:" . escapeString($match['competition']) . "\r\n";
             $icsContent .= "END:VEVENT\r\n";
         }
     }
-    
+
     $icsContent .= "END:VCALENDAR\r\n";
     return $icsContent;
 }
+
+// Escape special characters for ICS format
+function escapeString($string) {
+    return str_replace(
+        ["\\", ";", ","],
+        ["\\\\", "\\;", "\\,"],
+        $string
+    );
+}
+
 
 // Cache handling and cleaning the widget content
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
@@ -101,6 +124,13 @@ if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
 if ($content) {
     $cleanContent = cleanWidgetContent($content);
     $matches = extractMatches($cleanContent);
+
+    // Debugging output
+//    echo '<pre>';
+//    print_r($matches);
+//    echo '</pre>';
+//    exit;
+
     if (isset($_GET['download'])) {
         header('Content-Type: text/calendar; charset=utf-8');
         header('Content-Disposition: attachment; filename="Sirius_matcher.ics"');
@@ -237,6 +267,6 @@ if ($content) {
 
         </div>
     </div>
-    <p> <!-- the elegant footer from https://github.com/hjelmua/matcher/--> </p>
+    <p> <!-- the elegant footer --> </p>
 </body>
 </html>
