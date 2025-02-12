@@ -71,6 +71,21 @@ function getMonthName($date) {
     return $months[$monthNum] ?? '';
 }
 
+$hasUnscheduledGames = false;
+if ($content) {
+    $cleanContent = cleanWidgetContent($content);
+    $matches = extractMatches($cleanContent);
+    usort($matches, fn($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
+
+    // Check for unscheduled games (time = 00:00)
+    foreach ($matches as $match) {
+        if (strpos($match['date'], '00:00') !== false) {
+            $hasUnscheduledGames = true;
+            break;
+        }
+    }
+}
+
 function generateICS($matches) {
     $icsContent = "BEGIN:VCALENDAR\r\n";
     $icsContent .= "VERSION:2.0\r\n";
@@ -186,6 +201,12 @@ if ($content) {
             color: #000 !important;
             text-decoration: underline !important;
         }
+
+        .unscheduled-warning {
+         background-color: #FFE100;  /* Light red/pink background */
+         border: 1px solid #D9D8D7; /* Slightly darker border */
+         color: #0058A2;            /* Dark red text for better visibility */
+        }
       		
 		@font-face {
 		        font-family: "LeagueGothic";
@@ -252,8 +273,24 @@ if ($content) {
                     </tbody>
                 </table>
                 <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
+
+            <?php if ($hasUnscheduledGames): ?>
+                <p>  </p>
+                <div class="card unscheduled-warning mb-3">
+                <div class="card-body">
+                    <p class="mb-0">
+                        <strong>Notera:</strong> Vissa matcher har ännu inte fått en fastställd tid (visas som <code>00:00</code>). 
+                        Kom tillbaka vid ett senare tillfälle för att se uppdaterad information.
+                    </p>
+                </div>
+                </div>
+            <?php endif; ?>
+
             </div>
         </div>
     </div>
+        <p>
+           <!-- the elegant footer from https://github.com/hjelmua/matcher/ please leave this line as is -->
+       </p>
 </body>
 </html>
