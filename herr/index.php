@@ -6,25 +6,8 @@ $widgetUrls = [
     'https://uppland.svenskfotboll.se/widget.aspx?scr=teamresult&flid=299333'
 ];
 
-setlocale(LC_TIME, 'sv_SE.UTF-8', 'sv_SE', 'swedish');
-$monthTranslations = [
-    'January' => 'Januari',
-    'February' => 'Februari',
-    'March' => 'Mars',
-    'April' => 'April',
-    'May' => 'Maj',
-    'June' => 'Juni',
-    'July' => 'Juli',
-    'August' => 'Augusti',
-    'September' => 'September',
-    'October' => 'Oktober',
-    'November' => 'November',
-    'December' => 'December'
-];
-
 $cacheTime = 14400; // 4 hours in seconds
 $allMatches = [];
-$tableRows = '';
 
 // Function to fetch content with cURL
 function fetchContentWithCurl($url) {
@@ -40,48 +23,31 @@ function fetchContentWithCurl($url) {
     return $response;
 }
 
-// Download and cache each file
-foreach ($widgetUrls as $index => $url) {
-    $cacheFile = "widget_data_$index.html";
-    if (!file_exists($cacheFile) || (time() - filemtime($cacheFile)) > $cacheTime) {
-        $content = fetchContentWithCurl($url);
-        if ($content) {
-            file_put_contents($cacheFile, $content);
-            echo "Saved $cacheFile<br>";
-        } else {
-            echo "Failed to download content from $url<br>";
-        }
-    } else {
-        echo "<!-- Using cached file $cacheFile -->\n";
-    }
-}
-
 // Function to clean the widget content
 function cleanWidgetContent($content) {
     $content = preg_replace('/^document\.write\("(.+)"\);$/s', '$1', $content);
     $content = str_replace(['\"', "\\'"], ['"', "'"], $content);
-    $content = preg_replace('/\s*style="[^"]*"/i', '', $content);
-    $content = preg_replace('/<thead>.*?<\/thead>|<tfoot>.*?<\/tfoot>/is', '', $content); // Remove <thead> and <tfoot>
+    $content = preg_replace('/\s*style="[^"]*"/i', '', $content);  // Remove inline styles
+    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);  // Remove the footer
+    $content = preg_replace('/<th>Resultat<\/th>/i', '', $content);  // Remove the "Resultat" column
+    $content = preg_replace('/<tr class="[^"]*">\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>\s*<td>.*?<\/td>\s*<\/tr>/is', '<tr><td>$1</td><td>$2</td><td>$3</td></tr>', $content);
     return trim($content);
 }
 
-// Function to extract matches with date and month
+// Function to extract matches
 function extractMatches($content) {
-    global $monthTranslations;
     $matches = [];
-    if (preg_match_all('/<tr class="[^"]*">\s*<td>(\d{4}-\d{2}-\d{2})(?:<!-- br ok -->\s*(\d{2}:\d{2}))?\s*<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>/is', $content, $rows, PREG_SET_ORDER)) {
-        foreach ($rows as $row) {
-            $date = strip_tags($row[1]);
-            $time = isset($row[2]) && !empty($row[2]) ? trim($row[2]) : '00:00';
-            $competition = strip_tags($row[3]);
-            $game = strip_tags($row[4]);
-
-            $monthEnglish = date('F', strtotime($date)); // Get English month name
-            $monthSwedish = $monthTranslations[$monthEnglish] ?? $monthEnglish; // Translate to Swedish
+    if (preg_match_all('/<tr>\s*<td>\s*(\d{4}-\d{2}-\d{2})(?:<!-- br ok -->\s*(\d{2}:\d{2}))?\s*<\/td>\s*<td>(.*?)<\/td>\s*<td>(.*?)<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
+        foreach ($matchesData as $match) {
+            $date = $match[1];
+            $time = isset($match[2]) && trim($match[2]) ? trim($match[2]) : '00:00';
+            $competition = strip_tags($match[3]);
+            $game = strip_tags($match[4]);
+            $monthName = getMonthName($date);
 
             $matches[] = [
                 'date' => "$date $time",
-                'month' => $monthSwedish,
+                'month' => $monthName,
                 'competition' => $competition,
                 'match' => $game
             ];
@@ -90,11 +56,30 @@ function extractMatches($content) {
     return $matches;
 }
 
-// Process each cached file
-for ($i = 0; $i < count($widgetUrls); $i++) {
-    $cacheFile = "widget_data_$i.html";
-    if (file_exists($cacheFile)) {
+// Function to get Swedish month names
+function getMonthName($date) {
+    $months = [
+        '01' => 'Januari', '02' => 'Februari', '03' => 'Mars', '04' => 'April',
+        '05' => 'Maj', '06' => 'Juni', '07' => 'Juli', '08' => 'Augusti',
+        '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'December'
+    ];
+    $monthNum = date('m', strtotime($date));
+    return $months[$monthNum] ?? '';
+}
+
+// Process each widget URL and merge the matches
+foreach ($widgetUrls as $index => $url) {
+    $cacheFile = "widget_data_$index.html";
+    if (!file_exists($cacheFile) || (time() - filemtime($cacheFile)) > $cacheTime) {
+        $content = fetchContentWithCurl($url);
+        if ($content) {
+            file_put_contents($cacheFile, $content);
+        }
+    } else {
         $content = file_get_contents($cacheFile);
+    }
+
+    if ($content) {
         $cleanContent = cleanWidgetContent($content);
         $matches = extractMatches($cleanContent);
         $allMatches = array_merge($allMatches, $matches);
@@ -108,6 +93,7 @@ usort($allMatches, function ($a, $b) {
 
 // Generate the HTML table rows
 $lastMonth = '';
+$tableRows = '';
 foreach ($allMatches as $match) {
     if ($match['month'] !== $lastMonth) {
         $tableRows .= "<tr><td colspan='3'><strong>{$match['month']}</strong></td></tr>";
@@ -124,16 +110,14 @@ foreach ($allMatches as $match) {
 function generateICS($matches) {
     $icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\n";
     foreach ($matches as $match) {
-        if (!empty($match['date'])) {
-            $date = DateTime::createFromFormat('Y-m-d H:i', $match['date']);
-            if ($date) {
-                $icsContent .= "BEGIN:VEVENT\r\n";
-                $icsContent .= "DTSTART:" . $date->format('Ymd\THis') . "\r\n";
-                $icsContent .= "DTEND:" . $date->modify('+2 hours')->format('Ymd\THis') . "\r\n";
-                $icsContent .= "SUMMARY:" . trim($match['match']) . "\r\n";
-                $icsContent .= "DESCRIPTION:" . trim($match['competition']) . "\r\n";
-                $icsContent .= "END:VEVENT\r\n";
-            }
+        $date = DateTime::createFromFormat('Y-m-d H:i', $match['date']);
+        if ($date) {
+            $icsContent .= "BEGIN:VEVENT\r\n";
+            $icsContent .= "DTSTART:" . $date->format('Ymd\THis') . "\r\n";
+            $icsContent .= "DTEND:" . $date->modify('+2 hours')->format('Ymd\THis') . "\r\n";
+            $icsContent .= "SUMMARY:" . $match['match'] . "\r\n";
+            $icsContent .= "DESCRIPTION:" . $match['competition'] . "\r\n";
+            $icsContent .= "END:VEVENT\r\n";
         }
     }
     $icsContent .= "END:VCALENDAR\r\n";
@@ -143,8 +127,7 @@ function generateICS($matches) {
 // Generate the ICS file if download is requested
 if (isset($_GET['download'])) {
     header('Content-Type: text/calendar; charset=utf-8');
-    header('Content-Disposition: attachment; filename="herrlagens_matcher.ics"');
-    ob_clean();
+    header('Content-Disposition: attachment; filename="Herrlagens_matcher.ics"');
     echo generateICS($allMatches);
     exit;
 }
@@ -258,10 +241,13 @@ if (isset($_GET['download'])) {
 </head>
 <body>
     <div class="container mt-5">
-		 <div class="d-flex justify-content-between align-items-center mb-4">
+
+	 <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Herrlagens matcher</h1>
-		<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
-		  </div>
+	<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	 </div>
+
+
         <div class="card shadow-sm">
             <div class="card-body">
                 <table class="clCommonGrid">
@@ -273,10 +259,10 @@ if (isset($_GET['download'])) {
                         </tr>
                     </thead>
                     <tbody class="clGrid">
-                        <?php echo $tableRows ?: '<tr><td colspan="3">No matches found</td></tr>'; ?>
+                        <?= $tableRows ?: '<tr><td colspan="3">Inga matcher hittades</td></tr>'; ?>
                     </tbody>
                 </table>
-                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner herrlagens matcher som kalenderfil (.ics)</a>
+                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
             </div>
         </div>
     </div>
