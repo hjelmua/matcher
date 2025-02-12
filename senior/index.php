@@ -1,7 +1,5 @@
 <?php
 
-<?php
-
 $widgetUrls = [
     'https://www.svenskfotboll.se/widget.aspx?scr=teamresult&flid=108445',     //A-laget
     'https://uppland.svenskfotboll.se/widget.aspx?scr=teamresult&flid=26856',  //B-laget
