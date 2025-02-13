@@ -30,11 +30,11 @@ if ($svenskaCupenContent) {
 	$cleanedSvenskaCupenContent = cleanSvenskaCupenContent($svenskaCupenContent);
 
  // Debug: Check the cleaned content
- //   echo "<h4>Cleaned Svenska Cupen Content:</h4>";
- //   echo "<pre>";
- //   echo htmlspecialchars($cleanedSvenskaCupenContent);
- //   echo "</pre>";
- //   exit;
+//    echo "<h4>Cleaned Svenska Cupen Content:</h4>";
+//    echo "<pre>";
+//    echo htmlspecialchars($cleanedSvenskaCupenContent);
+//    echo "</pre>";
+//    exit;
 
     // Extract matches from cleaned Svenska Cupen content
     $svenskaCupenMatches = extractSvenskaCupenMatches($cleanedSvenskaCupenContent);
@@ -95,12 +95,48 @@ function cleanSvenskaCupenContent($content) {
     return trim($content);    
 }
 
+//function extractSvenskaCupenMatches($content) {
+//    $matches = [];
+//    if (preg_match_all('/<td>\s*(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})\s*<\/td>\s*<td>\s*<a[^>]*>(.*?)<\/a>\s*<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
+//        foreach ($matchesData as $match) {
+//            $date = "{$match[1]} {$match[2]}";
+//            $game = strip_tags($match[3]);
+//            $matches[] = [
+//                'date' => $date,
+//                'competition' => 'Svenska Cupen',
+//                'match' => $game
+//            ];
+//        }
+//    }
+//    return $matches;
+//}
+
+///function extractSvenskaCupenMatches($content) {
+///    $matches = [];
+///    if (preg_match_all('/<tr class="[^"]*">\s*<td>(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})<\/td>\s*<td>\s*<a[^>]*>(.*?)<\/a>\s*<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
+///        foreach ($matchesData as $match) {
+///            $date = "{$match[1]} {$match[2]}";
+///            $monthName = getMonthName($date);  // Add the month name using the existing function
+///            $game = strip_tags($match[3]);
+
+///            $matches[] = [
+///                'date' => $date,
+///                'month' => $monthName,  // Include the month in the extracted match data
+///                'competition' => 'Svenska Cupen',
+///                'match' => $game
+///            ];
+///        }
+///    }
+///    return $matches;
+///}
+
 function extractSvenskaCupenMatches($content) {
     $matches = [];
-    if (preg_match_all('/<td>\s*(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})\s*<\/td>\s*<td>\s*<a[^>]*>(.*?)<\/a>\s*<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
+    if (preg_match_all('/<tr class="[^"]*">\s*<td>(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})\s*<\/td>\s*<td>\s*<a[^>]*>(.*?)<\/a>\s*<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
         foreach ($matchesData as $match) {
-            $date = "{$match[1]} {$match[2]}";
+            $date = trim($match[1]) . ' ' . trim($match[2]);
             $game = strip_tags($match[3]);
+
             $matches[] = [
                 'date' => $date,
                 'competition' => 'Svenska Cupen',
@@ -110,6 +146,7 @@ function extractSvenskaCupenMatches($content) {
     }
     return $matches;
 }
+
 
 // Function to clean the widget content
 function cleanWidgetContent($content) {
@@ -193,10 +230,16 @@ $lastMonth = '';
 $tableRows = '';
 
 foreach ($allMatches as $match) {
+        // Use the extracted 'month' if available, otherwise calculate it
+    $currentMonth = $match['month'] ?? getMonthName($match['date']);
     // Only add a new month row if it's not empty and different from the last one
-    if (!empty($match['month']) && $match['month'] !== $lastMonth) {
-        $tableRows .= "<tr><td colspan='3'><strong>{$match['month']}</strong></td></tr>";
-        $lastMonth = $match['month'];
+//    if (!empty($match['month']) && $match['month'] !== $lastMonth) {
+//        $tableRows .= "<tr><td colspan='3'><strong>{$match['month']}</strong></td></tr>";
+//        $lastMonth = $match['month'];
+//    }
+    if ($currentMonth !== $lastMonth) {
+        $tableRows .= "<tr><td colspan='3'><strong>{$currentMonth}</strong></td></tr>";
+        $lastMonth = $currentMonth;
     }
 
     $tableRows .= "<tr>
