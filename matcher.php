@@ -121,23 +121,22 @@ if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTime) {
     }
 }
 
+
+// Generate $allMatches first
 if ($content) {
     $cleanContent = cleanWidgetContent($content);
     $matches = extractMatches($cleanContent);
+}
 
-    // Debugging output
-//    echo '<pre>';
-//    print_r($matches);
-//    echo '</pre>';
-//    exit;
+$filePath = __DIR__ . "/Sirius_matcher.ics";
+file_put_contents($filePath, generateICS($matches));  // Save the ICS content to a file
 
-    if (isset($_GET['download'])) {
+if (isset($_GET['download'])) {
         header('Content-Type: text/calendar; charset=utf-8');
         header('Content-Disposition: attachment; filename="Sirius_matcher.ics"');
         echo generateICS($matches);
         exit;
     }
-}
 
 ?>
 
@@ -252,7 +251,7 @@ if ($content) {
   <div class="d-flex justify-content-between align-items-center mb-4">
     
     <h1>Föreningens alla matcher de närmaste dagarna</h1>
-    <img src="/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	<a href="https://siriusfotboll.se"><img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;"></a>
   </div>
 
             <div class="card shadow-sm">
@@ -260,13 +259,13 @@ if ($content) {
                 <?php echo $cleanContent; ?>
 
                 <p> </p>
-        <a href="?download=true" class="btn btn-primary">Ladda ner en kalenderfil med matcherna ovan (.ics)</a>
-
+        <a href="?download=true" class="btn btn-primary mt-3">Ladda ner en kalenderfil (.ics)</a> 
+        <a href="webcal://functions.siriusfotboll.org/Sirius_matcher.ics" class="btn btn-primary mt-3">Prenumerera på kalenderfil (.ics)</a>
             </div>
 
 
         </div>
     </div>
-    <p> <!-- the elegant footer --> </p>
+    <p>  <!-- the elegant footer - from https://github.com/hjelmua/matcher/ please leave this line as is --> </p>
 </body>
 </html>
