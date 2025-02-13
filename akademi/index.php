@@ -143,11 +143,14 @@ function generateICS($matches) {
     return $icsContent;
 }
 
+$filePath = __DIR__ . "/Akademilagens_matcher.ics";
+file_put_contents($filePath, generateICS($allMatches));  // Save the ICS content to a file
+
 // Generate the ICS file if download is requested
 if (isset($_GET['download'])) {
     header('Content-Type: text/calendar; charset=utf-8');
     header('Content-Disposition: attachment; filename="Akademilagens_matcher.ics"');
-    echo generateICS($allMatches);
+    readfile($filePath);  // Serve the saved file for download
     exit;
 }
 ?>
@@ -270,7 +273,7 @@ if (isset($_GET['download'])) {
 
 	 <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Akademilagens matcher</h1>
-	<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	<a href="https://siriusfotboll.se"><img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;"></a>
 	 </div>
 
 
@@ -289,6 +292,7 @@ if (isset($_GET['download'])) {
                     </tbody>
                 </table>
                 <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
+				<a href="webcal://functions.siriusfotboll.org/akademi/Akademilagens_matcher.ics" class="btn btn-primary mt-3">Prenumerera på kalenderfil (.ics)</a>
 
 <?php if ($hasUnscheduledGames): ?>
 <p>  </p>
@@ -308,7 +312,7 @@ if (isset($_GET['download'])) {
         </div>
     </div>
     <p>
-           <!-- the elegant footer from https://github.com/hjelmua/matcher/ -->
+           <!-- the elegant footer - from https://github.com/hjelmua/matcher/ please leave this line as is for cred -->
        </p>
 </body>
 </html>
