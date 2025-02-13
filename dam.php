@@ -115,14 +115,17 @@ if ($content) {
     $cleanContent = cleanWidgetContent($content);
     $matches = extractMatches($cleanContent);
     usort($matches, fn($a, $b) => strtotime($a['date']) <=> strtotime($b['date']));
-
+    }
+	
+	$filePath = __DIR__ . "/damlagets_matcher.ics";
+	file_put_contents($filePath, generateICS($matches));  // Save the ICS content to a file
+	
     if (isset($_GET['download'])) {
         header('Content-Type: text/calendar; charset=utf-8');
-        header('Content-Disposition: attachment; filename="Damlagets_matcher.ics"');
+        header('Content-Disposition: attachment; filename="damlagets_matcher.ics"');
         echo generateICS($matches);
         exit;
-    }
-}
+        }
 ?>
 
 <!DOCTYPE html>
@@ -242,7 +245,7 @@ if ($content) {
 
 	 <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Damlagets matcher</h1>
-	<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	<a href="https://siriusfotboll.se"><img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;"></a>
 	 </div>
 
         <div class="card shadow-sm">
@@ -273,6 +276,7 @@ if ($content) {
                     </tbody>
                 </table>
                 <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
+		<a href="webcal://functions.siriusfotboll.org/damlagets_matcher.ics" class="btn btn-primary mt-3">Prenumerera på kalenderfil (.ics)</a>
 
             <?php if ($hasUnscheduledGames): ?>
                 <p>  </p>
