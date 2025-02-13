@@ -10,6 +10,61 @@ $widgetUrls = [
 $cacheTime = 14400; // 4 hours in seconds
 $allMatches = [];
 
+// Add this just after processing the other widgets
+
+// Fetch and cache Svenska Cupen data
+$svenskaCupenCacheFile = "widget_svenskacupen.html";
+$svenskaCupenUrl = 'https://www.svenskfotboll.se/widget.aspx?scr=cominginleague&ftid=118378'; // Svenska cupen
+
+if (!file_exists($svenskaCupenCacheFile) || (time() - filemtime($svenskaCupenCacheFile)) > $cacheTime) {
+    $svenskaCupenContent = fetchContentWithCurl($svenskaCupenUrl);
+    if ($svenskaCupenContent) {
+        file_put_contents($svenskaCupenCacheFile, $svenskaCupenContent);
+    }
+} else {
+    $svenskaCupenContent = file_get_contents($svenskaCupenCacheFile);
+}
+
+if ($svenskaCupenContent) {
+    // Clean Svenska Cupen content
+	$cleanedSvenskaCupenContent = cleanSvenskaCupenContent($svenskaCupenContent);
+
+ // Debug: Check the cleaned content
+ //   echo "<h4>Cleaned Svenska Cupen Content:</h4>";
+ //   echo "<pre>";
+ //   echo htmlspecialchars($cleanedSvenskaCupenContent);
+ //   echo "</pre>";
+ //   exit;
+
+    // Extract matches from cleaned Svenska Cupen content
+    $svenskaCupenMatches = extractSvenskaCupenMatches($cleanedSvenskaCupenContent);
+
+// Debug: Check extracted matches
+//echo "<h4>Extracted Svenska Cupen Matches:</h4>";
+//echo "<pre>";
+//print_r($svenskaCupenMatches);
+//echo "</pre>";
+//exit;
+
+$svenskaCupenMatches = extractSvenskaCupenMatches($cleanedSvenskaCupenContent);
+
+// Debugging: Verify the extracted matches
+//echo "<h4>Extracted Svenska Cupen Matches:</h4>";
+//echo "<pre>";
+//print_r($svenskaCupenMatches);
+//echo "</pre>";
+//exit;
+
+    // Filter to only include matches involving 'IK Sirius FK'
+    $svenskaCupenMatches = array_filter($svenskaCupenMatches, function ($match) {
+        return strpos($match['match'], 'IK Sirius') !== false;
+    });
+
+    // Merge the filtered Svenska Cupen matches with the main matches array
+    $allMatches = array_merge($allMatches, $svenskaCupenMatches);
+}
+
+
 // Function to fetch content with cURL
 function fetchContentWithCurl($url) {
     $ch = curl_init();
@@ -18,10 +73,42 @@ function fetchContentWithCurl($url) {
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'PHP-Script');
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36');
+//    curl_setopt($ch, CURLOPT_USERAGENT, 'PHP-Script');
     $response = curl_exec($ch);
     curl_close($ch);
     return $response;
+}
+
+// Function to clean Svenska Cupen content
+function cleanSvenskaCupenContent($content) {
+    // Remove document.write wrapper
+    $content = preg_replace('/^document\.write\("(.+)"\);$/s', '$1', $content);
+    $content = str_replace(['\\"', "\\'"], ['"', "'"], $content);
+    
+    // Remove inline styles and footers
+    $content = preg_replace('/\s*style="[^"]*"/i', '', $content);
+    $content = preg_replace('/<tfoot>.*?<\/tfoot>/is', '', $content);
+    
+    // Special cleaning for Svenska Cupen — remove unnecessary headers but keep rows
+    $content = preg_replace('/<th>.*?<\/th>/i', '', $content);  // Remove table headers
+    return trim($content);    
+}
+
+function extractSvenskaCupenMatches($content) {
+    $matches = [];
+    if (preg_match_all('/<td>\s*(\d{4}-\d{2}-\d{2})<!-- br ok -->\s*(\d{2}:\d{2})\s*<\/td>\s*<td>\s*<a[^>]*>(.*?)<\/a>\s*<\/td>/is', $content, $matchesData, PREG_SET_ORDER)) {
+        foreach ($matchesData as $match) {
+            $date = "{$match[1]} {$match[2]}";
+            $game = strip_tags($match[3]);
+            $matches[] = [
+                'date' => $date,
+                'competition' => 'Svenska Cupen',
+                'match' => $game
+            ];
+        }
+    }
+    return $matches;
 }
 
 // Function to clean the widget content
@@ -104,11 +191,14 @@ foreach ($allMatches as $match) {
 // Generate the HTML table rows
 $lastMonth = '';
 $tableRows = '';
+
 foreach ($allMatches as $match) {
-    if ($match['month'] !== $lastMonth) {
+    // Only add a new month row if it's not empty and different from the last one
+    if (!empty($match['month']) && $match['month'] !== $lastMonth) {
         $tableRows .= "<tr><td colspan='3'><strong>{$match['month']}</strong></td></tr>";
         $lastMonth = $match['month'];
     }
+
     $tableRows .= "<tr>
         <td>{$match['date']}</td>
         <td>{$match['competition']}</td>
@@ -141,11 +231,15 @@ function generateICS($matches) {
     return $icsContent;
 }
 
+// Generate and save the ICS file
+$filePath = __DIR__ . "/Seniorlagens_matcher.ics";
+file_put_contents($filePath, generateICS($allMatches));  // Save the ICS content to a file
+
 // Generate the ICS file if download is requested
 if (isset($_GET['download'])) {
     header('Content-Type: text/calendar; charset=utf-8');
     header('Content-Disposition: attachment; filename="Seniorlagens_matcher.ics"');
-    echo generateICS($allMatches);
+    readfile($filePath);  // Serve the saved file for download
     exit;
 }
 ?>
@@ -268,7 +362,7 @@ if (isset($_GET['download'])) {
 
 	 <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Seniorlagens matcher</h1>
-	<img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;">
+	<a href="https://siriusfotboll.se"><img src="https://functions.siriusfotboll.org/logo/Sirius_2021_RGB.webp" alt="IK Sirius Fotboll 1907" style="max-width: 100px; height: auto;"></a>
 	 </div>
 
 
@@ -286,7 +380,7 @@ if (isset($_GET['download'])) {
                         <?= $tableRows ?: '<tr><td colspan="3">Inga matcher hittades</td></tr>'; ?>
                     </tbody>
                 </table>
-                <a href="?download=true" class="btn btn-primary mt-3">Ladda ner kalenderfil (.ics)</a>
+                <a href="webcal://functions.siriusfotboll.org/senior/Seniorlagens_matcher.ics" class="btn btn-primary mt-3">Prenumerera på kalenderfil (.ics)</a>
 
 <?php if ($hasUnscheduledGames): ?>
 <p>  </p>
@@ -306,7 +400,7 @@ if (isset($_GET['download'])) {
         </div>
     </div>
     <p>
-           <!-- the elegant footer from https://github.com/hjelmua/matcher/ -->
+           <!-- the elegant footer - code from https://github.com/hjelmua/matcher/ please leave this line as is for cred-->
        </p>
 </body>
 </html>
