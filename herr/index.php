@@ -209,7 +209,7 @@ function generateICS($matches) {
     $icsContent = "BEGIN:VCALENDAR\r\n";
     $icsContent .= "VERSION:2.0\r\n";
     $icsContent .= "CALSCALE:GREGORIAN\r\n";
-    $icsContent .= "X-WR-CALNAME:Sirius - Seniorlagens matcher\r\n";  // Calendar name
+    $icsContent .= "X-WR-CALNAME:Sirius - Herrlagens matcher\r\n";  // Calendar name
     $icsContent .= "X-WR-TIMEZONE:Europe/Stockholm\r\n";     // Set timezone (optional but recommended)
     
     foreach ($matches as $match) {
